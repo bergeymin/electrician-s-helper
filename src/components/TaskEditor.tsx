@@ -1,19 +1,24 @@
 import * as React from "react";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import { Check, Clock, Plus, Trash2 } from "lucide-react";
+import BottomSheet from "@/components/BottomSheet";
 import {
   DEFAULT_TOOLS,
   MATERIAL_SUGGESTIONS,
   PRIORITY_LABEL,
-  STATUS_LABEL,
   UNITS,
+  estimate,
+  fmtMinutes,
   uid,
   type Priority,
-  type Status,
+  type Project,
   type Task,
 } from "@/lib/tasks";
 
 type Props = {
   task: Task;
+  isNew: boolean;
+  project: Project;
+  history: Task[];
   customTools: string[];
   onAddCustomTool: (name: string) => void;
   onSave: (task: Task) => void;
@@ -21,11 +26,16 @@ type Props = {
   onClose: () => void;
 };
 
-const chip =
-  "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors";
+const chip = "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors";
+const field =
+  "w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary";
+const label = "text-xs font-bold uppercase tracking-wider text-muted-foreground";
 
 export default function TaskEditor({
   task,
+  isNew,
+  project,
+  history,
   customTools,
   onAddCustomTool,
   onSave,
@@ -43,12 +53,10 @@ export default function TaskEditor({
     setDraft((d) => ({ ...d, [key]: value }));
 
   const allTools = [...DEFAULT_TOOLS, ...customTools];
+  const est = estimate(draft.title, draft.qtyTarget, history);
 
   const toggleTool = (name: string) =>
-    set(
-      "tools",
-      draft.tools.includes(name) ? draft.tools.filter((t) => t !== name) : [...draft.tools, name],
-    );
+    set("tools", draft.tools.includes(name) ? draft.tools.filter((t) => t !== name) : [...draft.tools, name]);
 
   const addCustomTool = () => {
     const name = toolInput.trim();
@@ -62,7 +70,7 @@ export default function TaskEditor({
     if (!matName.trim()) return;
     set("materials", [
       ...draft.materials,
-      { id: uid(), name: matName.trim(), qty: matQty.trim() || "1", unit: matUnit },
+      { id: uid(), name: matName.trim(), qty: Number(matQty.replace(",", ".")) || 1, unit: matUnit },
     ]);
     setMatName("");
     setMatQty("");
@@ -74,59 +82,129 @@ export default function TaskEditor({
     setSubInput("");
   };
 
-  const save = () => {
-    if (!draft.title.trim()) return;
-    onSave(draft);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-3">
-        <button onClick={onClose} aria-label="Закрыть" className="shrink-0 text-muted-foreground">
-          <X className="h-5 w-5" />
-        </button>
-        <h2 className="truncate text-sm font-bold uppercase tracking-wider text-muted-foreground">
-          {task.title ? "Задача" : "Новая задача"}
-        </h2>
+    <BottomSheet
+      title={isNew ? "Новая задача" : "Задача"}
+      onClose={onClose}
+      action={
         <button
-          onClick={save}
-          className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
+          onClick={() => draft.title.trim() && onSave(draft)}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
         >
           Сохранить
         </button>
-      </header>
-
-      <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 pb-24">
+      }
+    >
+      <div className="space-y-6 pt-1">
         <input
           value={draft.title}
           onChange={(e) => set("title", e.target.value)}
           placeholder="Что нужно сделать?"
-          className="w-full rounded-xl border border-input bg-card px-4 py-3 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+          className={`${field} text-base font-semibold`}
         />
 
+        {est && (
+          <div className="flex items-start gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3">
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0 text-xs text-foreground">
+              <p className="font-bold text-primary">Ориентировочно {fmtMinutes(est.minutes)}</p>
+              <p className="mt-0.5 text-muted-foreground">
+                По опыту: {fmtMinutes(est.perUnit)} на 1 {draft.qtyUnit} · похожих задач: {est.samples}
+              </p>
+              {est.materials.length > 0 && (
+                <p className="mt-1 text-muted-foreground">
+                  Расход:{" "}
+                  {est.materials
+                    .map(
+                      (m) =>
+                        `${m.name} ≈ ${(m.perUnit * Math.max(1, draft.qtyTarget)).toFixed(1)} ${m.unit}`,
+                    )
+                    .join(", ")}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         <section className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Статус</p>
+          <p className={label}>Количество</p>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+            <input
+              value={draft.qtyTarget}
+              onChange={(e) => set("qtyTarget", Number(e.target.value.replace(/\D/g, "")) || 0)}
+              inputMode="numeric"
+              placeholder="80"
+              className={field}
+            />
+            <select
+              value={draft.qtyUnit}
+              onChange={(e) => set("qtyUnit", e.target.value)}
+              className="shrink-0 rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none"
+            >
+              {UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="rounded-xl border border-border bg-background px-4 py-3">
+            <div className="flex items-center justify-between text-xs font-semibold">
+              <span className="text-muted-foreground">Выполнено</span>
+              <span className="text-primary">
+                {draft.qtyDone} / {draft.qtyTarget} {draft.qtyUnit}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(1, draft.qtyTarget)}
+              value={Math.min(draft.qtyDone, Math.max(1, draft.qtyTarget))}
+              onChange={(e) => set("qtyDone", Number(e.target.value))}
+              className="mt-3 w-full accent-primary"
+            />
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <p className={label}>Секция проекта «{project.name}»</p>
           <div className="flex flex-wrap gap-2">
-            {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
+            <button
+              onClick={() => set("sectionId", null)}
+              className={`${chip} ${draft.sectionId === null ? "border-accent bg-accent text-accent-foreground" : "border-border bg-background text-muted-foreground"}`}
+            >
+              Без секции
+            </button>
+            {project.sections.map((s) => (
               <button
-                key={s}
-                onClick={() => set("status", s)}
-                className={`${chip} ${draft.status === s ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
+                key={s.id}
+                onClick={() => set("sectionId", s.id)}
+                className={`${chip} ${draft.sectionId === s.id ? "border-accent bg-accent text-accent-foreground" : "border-border bg-background text-muted-foreground"}`}
               >
-                {STATUS_LABEL[s]}
+                {s.name}
               </button>
             ))}
           </div>
         </section>
 
+        <label className="block space-y-1.5">
+          <span className={label}>Срок</span>
+          <input
+            type="datetime-local"
+            value={draft.due}
+            onChange={(e) => set("due", e.target.value)}
+            className={field}
+          />
+        </label>
+
         <section className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Приоритет</p>
+          <p className={label}>Приоритет</p>
           <div className="flex flex-wrap gap-2">
             {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => (
               <button
                 key={p}
                 onClick={() => set("priority", p)}
-                className={`${chip} ${draft.priority === p ? "border-accent bg-accent text-accent-foreground" : "border-border bg-card text-muted-foreground"}`}
+                className={`${chip} ${draft.priority === p ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}
               >
                 {PRIORITY_LABEL[p]}
               </button>
@@ -134,40 +212,8 @@ export default function TaskEditor({
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-3">
-          <label className="space-y-1.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Срок</span>
-            <input
-              type="date"
-              value={draft.due}
-              onChange={(e) => set("due", e.target.value)}
-              className="w-full rounded-xl border border-input bg-card px-4 py-3 text-sm text-foreground outline-none focus:border-primary"
-            />
-          </label>
-          <label className="space-y-1.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Объект</span>
-            <input
-              value={draft.site}
-              onChange={(e) => set("site", e.target.value)}
-              placeholder="ЖК Восточный, кв. 42"
-              className="w-full rounded-xl border border-input bg-card px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
-            />
-          </label>
-          <label className="space-y-1.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Помещение</span>
-            <input
-              value={draft.room}
-              onChange={(e) => set("room", e.target.value)}
-              placeholder="Кухня"
-              className="w-full rounded-xl border border-input bg-card px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
-            />
-          </label>
-        </section>
-
         <section className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Инструмент ({draft.tools.length})
-          </p>
+          <p className={label}>Инструмент ({draft.tools.length})</p>
           <div className="flex flex-wrap gap-2">
             {allTools.map((t) => {
               const on = draft.tools.includes(t);
@@ -175,7 +221,7 @@ export default function TaskEditor({
                 <button
                   key={t}
                   onClick={() => toggleTool(t)}
-                  className={`${chip} inline-flex items-center gap-1 ${on ? "border-primary bg-primary/15 text-primary" : "border-border bg-card text-muted-foreground"}`}
+                  className={`${chip} inline-flex items-center gap-1 ${on ? "border-primary bg-primary/15 text-primary" : "border-border bg-background text-muted-foreground"}`}
                 >
                   {on && <Check className="h-3.5 w-3.5" />}
                   {t}
@@ -188,11 +234,11 @@ export default function TaskEditor({
               value={toolInput}
               onChange={(e) => setToolInput(e.target.value)}
               placeholder="Свой инструмент"
-              className="min-w-0 flex-1 rounded-xl border border-input bg-card px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              className={`${field} min-w-0 flex-1 py-2.5`}
             />
             <button
               onClick={addCustomTool}
-              className="shrink-0 rounded-xl border border-border bg-card px-3 text-primary"
+              className="shrink-0 rounded-xl border border-border px-3 text-primary"
               aria-label="Добавить инструмент"
             >
               <Plus className="h-5 w-5" />
@@ -201,12 +247,12 @@ export default function TaskEditor({
         </section>
 
         <section className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Материалы</p>
+          <p className={label}>Материалы (план)</p>
           <ul className="space-y-2">
             {draft.materials.map((m) => (
               <li
                 key={m.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
+                className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded-xl border border-border bg-background px-4 py-3"
               >
                 <span className="truncate text-sm text-foreground">{m.name}</span>
                 <span className="shrink-0 text-sm font-bold text-primary">
@@ -228,7 +274,7 @@ export default function TaskEditor({
               value={matName}
               onChange={(e) => setMatName(e.target.value)}
               placeholder="Материал"
-              className="w-full rounded-lg border border-input bg-card px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              className={`${field} py-2.5`}
             />
             <datalist id="material-suggestions">
               {MATERIAL_SUGGESTIONS.map((m) => (
@@ -241,12 +287,12 @@ export default function TaskEditor({
                 onChange={(e) => setMatQty(e.target.value)}
                 inputMode="decimal"
                 placeholder="Кол-во"
-                className="min-w-0 rounded-lg border border-input bg-card px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                className={`${field} min-w-0 py-2.5`}
               />
               <select
                 value={matUnit}
                 onChange={(e) => setMatUnit(e.target.value)}
-                className="shrink-0 rounded-lg border border-input bg-card px-2 py-2.5 text-sm text-foreground outline-none"
+                className="shrink-0 rounded-lg border border-input bg-background px-2 text-sm text-foreground outline-none"
               >
                 {UNITS.map((u) => (
                   <option key={u} value={u}>
@@ -266,12 +312,12 @@ export default function TaskEditor({
         </section>
 
         <section className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Подзадачи</p>
+          <p className={label}>Подзадачи (не влияют на прогресс)</p>
           <ul className="space-y-2">
             {draft.subtasks.map((s) => (
               <li
                 key={s.id}
-                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-background px-4 py-3"
               >
                 <button
                   onClick={() =>
@@ -305,11 +351,11 @@ export default function TaskEditor({
               value={subInput}
               onChange={(e) => setSubInput(e.target.value)}
               placeholder="Шаг работы"
-              className="min-w-0 flex-1 rounded-xl border border-input bg-card px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+              className={`${field} min-w-0 flex-1 py-2.5`}
             />
             <button
               onClick={addSub}
-              className="shrink-0 rounded-xl border border-border bg-card px-3 text-primary"
+              className="shrink-0 rounded-xl border border-border px-3 text-primary"
               aria-label="Добавить подзадачу"
             >
               <Plus className="h-5 w-5" />
@@ -326,6 +372,6 @@ export default function TaskEditor({
           </button>
         )}
       </div>
-    </div>
+    </BottomSheet>
   );
 }
