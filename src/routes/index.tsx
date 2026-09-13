@@ -62,7 +62,7 @@ function Index() {
 
   const cycleStatus = (t: Task) => {
     const order: Status[] = ["todo", "doing", "done"];
-    const next = order[(order.indexOf(t.status) + 1) % 3];
+    const next = order[(order.indexOf(t.status) + 1) % 3] as Status;
     setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, status: next } : x)));
   };
 

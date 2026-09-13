@@ -17,7 +17,7 @@ type Props = {
   customTools: string[];
   onAddCustomTool: (name: string) => void;
   onSave: (task: Task) => void;
-  onDelete?: () => void;
+  onDelete?: (() => void) | undefined;
   onClose: () => void;
 };
 
