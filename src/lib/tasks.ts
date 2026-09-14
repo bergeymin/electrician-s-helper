@@ -27,8 +27,21 @@ export type Task = {
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
   low: "Низкий",
-  normal: "Обычный",
-  high: "Срочно",
+  normal: "Средний",
+  high: "Срочный",
+};
+
+/** Цветовые бейджи приоритета. */
+export const PRIORITY_BADGE: Record<Priority, string> = {
+  low: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400",
+  normal: "border-amber-500/40 bg-amber-500/15 text-amber-400",
+  high: "border-red-500/40 bg-red-500/15 text-red-400",
+};
+
+export const PRIORITY_ACTIVE: Record<Priority, string> = {
+  low: "border-emerald-500 bg-emerald-500 text-black",
+  normal: "border-amber-500 bg-amber-500 text-black",
+  high: "border-red-500 bg-red-500 text-white",
 };
 
 export const DEFAULT_TOOLS = [
@@ -151,25 +164,31 @@ export function estimate(title: string, qty: number, history: Task[]): Estimate 
   };
 }
 
+/** Время только в десятичных часах, например «2,5 ч». */
 export const fmtMinutes = (m: number) => {
-  const total = Math.max(0, Math.round(m));
-  const h = Math.floor(total / 60);
-  const min = total % 60;
-  if (h && min) return `${h} ч ${min} мин`;
-  if (h) return `${h} ч`;
-  return `${min} мин`;
+  const hours = Math.max(0, m) / 60;
+  const rounded = Math.round(hours * 10) / 10;
+  return `${String(rounded).replace(".", ",")} ч`;
+};
+
+/** Приводит любое сохранённое значение срока к формату ГГГГ-ММ-ДД. */
+export const toDateOnly = (value: string) => (value ? value.slice(0, 10) : "");
+
+export const dateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+export const dayOffset = (offset: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return dateKey(d);
 };
 
 export const fmtDue = (value: string) => {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const only = toDateOnly(value);
+  if (!only) return "";
+  const d = new Date(`${only}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return only;
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short", year: "numeric" });
 };
 
 export const qtyProgress = (t: Task) =>
