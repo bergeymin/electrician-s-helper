@@ -17,9 +17,10 @@ export default function DuePicker({ value, onChange }: Props) {
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const openCalendar = () => {
-    const el = inputRef.current;
+    const el: HTMLInputElement | null = inputRef.current;
     if (!el) return;
-    if ("showPicker" in el) (el as HTMLInputElement & { showPicker: () => void }).showPicker();
+    const withPicker = el as HTMLInputElement & { showPicker?: () => void };
+    if (typeof withPicker.showPicker === "function") withPicker.showPicker();
     else el.focus();
   };
 
