@@ -14,23 +14,21 @@ const field =
 
 export default function CompleteSheet({ task, history, onComplete, onClose }: Props) {
   const [hours, setHours] = React.useState("");
-  const [minutes, setMinutes] = React.useState("");
-  const [qtyDone, setQtyDone] = React.useState(String(task.qtyDone || task.qtyTarget));
   const [used, setUsed] = React.useState<Record<string, string>>(
     Object.fromEntries(task.materials.map((m) => [m.id, String(m.used ?? m.qty)])),
   );
 
   const est = estimate(task.title, task.qtyTarget, history);
-  const total = (Number(hours) || 0) * 60 + (Number(minutes) || 0);
+  const totalMinutes = Math.round((Number(hours.replace(",", ".")) || 0) * 60);
 
   const finish = () => {
-    if (total <= 0) return;
+    if (totalMinutes <= 0) return;
     onComplete({
       ...task,
       done: true,
       completedAt: new Date().toISOString(),
-      minutesSpent: total,
-      qtyDone: Number(qtyDone) || task.qtyTarget,
+      minutesSpent: totalMinutes,
+      qtyDone: task.qtyTarget,
       materials: task.materials.map((m) => ({
         ...m,
         used: Number((used[m.id] ?? "").replace(",", ".")) || m.qty,
@@ -46,7 +44,7 @@ export default function CompleteSheet({ task, history, onComplete, onClose }: Pr
         <button
           onClick={finish}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-40"
-          disabled={total <= 0}
+          disabled={totalMinutes <= 0}
         >
           В архив
         </button>
@@ -54,45 +52,25 @@ export default function CompleteSheet({ task, history, onComplete, onClose }: Pr
     >
       <div className="space-y-5 pt-1">
         <p className="text-sm font-bold text-foreground">{task.title}</p>
+        <p className="text-xs text-muted-foreground">
+          Выполнено будет записано как {task.qtyTarget} {task.qtyUnit}.
+        </p>
 
         <section className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Сколько времени ушло
+            Затраченное время, часы
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              value={hours}
-              onChange={(e) => setHours(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-              placeholder="часы"
-              className={field}
-            />
-            <input
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-              placeholder="минуты"
-              className={field}
-            />
-          </div>
-          {est && (
-            <p className="text-xs text-muted-foreground">
-              Прогноз по опыту был {fmtMinutes(est.minutes)}
-            </p>
-          )}
-        </section>
-
-        <label className="block space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Фактически выполнено ({task.qtyUnit})
-          </span>
           <input
-            value={qtyDone}
-            onChange={(e) => setQtyDone(e.target.value.replace(/\D/g, ""))}
-            inputMode="numeric"
+            value={hours}
+            onChange={(e) => setHours(e.target.value.replace(/[^\d.,]/g, ""))}
+            inputMode="decimal"
+            placeholder="например 2,5"
             className={field}
           />
-        </label>
+          {est && (
+            <p className="text-xs text-muted-foreground">Прогноз по опыту был {fmtMinutes(est.minutes)}</p>
+          )}
+        </section>
 
         {task.materials.length > 0 && (
           <section className="space-y-2">
@@ -106,6 +84,7 @@ export default function CompleteSheet({ task, history, onComplete, onClose }: Pr
                   value={used[m.id] ?? ""}
                   onChange={(e) => setUsed((p) => ({ ...p, [m.id]: e.target.value }))}
                   inputMode="decimal"
+                  aria-label={`Расход: ${m.name}`}
                   className={`${field} py-2.5`}
                 />
                 <span className="text-xs text-muted-foreground">{m.unit}</span>

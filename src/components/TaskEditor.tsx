@@ -1,13 +1,16 @@
 import * as React from "react";
 import { Check, Clock, Plus, Trash2 } from "lucide-react";
 import BottomSheet from "@/components/BottomSheet";
+import DuePicker from "@/components/DuePicker";
 import {
   DEFAULT_TOOLS,
   MATERIAL_SUGGESTIONS,
+  PRIORITY_ACTIVE,
   PRIORITY_LABEL,
   UNITS,
   estimate,
   fmtMinutes,
+  toDateOnly,
   uid,
   type Priority,
   type Project,
@@ -20,7 +23,9 @@ type Props = {
   project: Project;
   history: Task[];
   customTools: string[];
+  customMaterials: string[];
   onAddCustomTool: (name: string) => void;
+  onAddCustomMaterial: (name: string) => void;
   onSave: (task: Task) => void;
   onDelete?: (() => void) | undefined;
   onClose: () => void;
@@ -37,12 +42,14 @@ export default function TaskEditor({
   project,
   history,
   customTools,
+  customMaterials,
   onAddCustomTool,
+  onAddCustomMaterial,
   onSave,
   onDelete,
   onClose,
 }: Props) {
-  const [draft, setDraft] = React.useState<Task>(task);
+  const [draft, setDraft] = React.useState<Task>({ ...task, due: toDateOnly(task.due) });
   const [toolInput, setToolInput] = React.useState("");
   const [matName, setMatName] = React.useState("");
   const [matQty, setMatQty] = React.useState("");
@@ -53,6 +60,7 @@ export default function TaskEditor({
     setDraft((d) => ({ ...d, [key]: value }));
 
   const allTools = [...DEFAULT_TOOLS, ...customTools];
+  const allMaterials = [...MATERIAL_SUGGESTIONS, ...customMaterials];
   const est = estimate(draft.title, draft.qtyTarget, history);
 
   const toggleTool = (name: string) =>
@@ -67,10 +75,12 @@ export default function TaskEditor({
   };
 
   const addMaterial = () => {
-    if (!matName.trim()) return;
+    const name = matName.trim();
+    if (!name) return;
+    if (!allMaterials.some((m) => m.toLowerCase() === name.toLowerCase())) onAddCustomMaterial(name);
     set("materials", [
       ...draft.materials,
-      { id: uid(), name: matName.trim(), qty: Number(matQty.replace(",", ".")) || 1, unit: matUnit },
+      { id: uid(), name, qty: Number(matQty.replace(",", ".")) || 0, unit: matUnit },
     ]);
     setMatName("");
     setMatQty("");
@@ -84,7 +94,7 @@ export default function TaskEditor({
 
   return (
     <BottomSheet
-      title={isNew ? "Новая задача" : "Задача"}
+      title={isNew ? "Новая задача" : "Настройка задачи"}
       onClose={onClose}
       action={
         <button
@@ -130,10 +140,10 @@ export default function TaskEditor({
           <p className={label}>Количество</p>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
             <input
-              value={draft.qtyTarget}
+              value={draft.qtyTarget ? String(draft.qtyTarget) : ""}
               onChange={(e) => set("qtyTarget", Number(e.target.value.replace(/\D/g, "")) || 0)}
               inputMode="numeric"
-              placeholder="80"
+              placeholder="Например: 80"
               className={field}
             />
             <select
@@ -148,54 +158,29 @@ export default function TaskEditor({
               ))}
             </select>
           </div>
-          <div className="rounded-xl border border-border bg-background px-4 py-3">
-            <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-muted-foreground">Выполнено</span>
-              <span className="text-primary">
-                {draft.qtyDone} / {draft.qtyTarget} {draft.qtyUnit}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={Math.max(1, draft.qtyTarget)}
-              value={Math.min(draft.qtyDone, Math.max(1, draft.qtyTarget))}
-              onChange={(e) => set("qtyDone", Number(e.target.value))}
-              className="mt-3 w-full accent-primary"
-            />
-          </div>
         </section>
+
+        {project.sections.length > 0 && (
+          <section className="space-y-2">
+            <p className={label}>Секция проекта «{project.name}»</p>
+            <div className="flex flex-wrap gap-2">
+              {project.sections.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => set("sectionId", draft.sectionId === s.id ? null : s.id)}
+                  className={`${chip} ${draft.sectionId === s.id ? "border-accent bg-accent text-accent-foreground" : "border-border bg-background text-muted-foreground"}`}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="space-y-2">
-          <p className={label}>Секция проекта «{project.name}»</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => set("sectionId", null)}
-              className={`${chip} ${draft.sectionId === null ? "border-accent bg-accent text-accent-foreground" : "border-border bg-background text-muted-foreground"}`}
-            >
-              Без секции
-            </button>
-            {project.sections.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => set("sectionId", s.id)}
-                className={`${chip} ${draft.sectionId === s.id ? "border-accent bg-accent text-accent-foreground" : "border-border bg-background text-muted-foreground"}`}
-              >
-                {s.name}
-              </button>
-            ))}
-          </div>
+          <p className={label}>Срок</p>
+          <DuePicker value={draft.due} onChange={(v) => set("due", v)} />
         </section>
-
-        <label className="block space-y-1.5">
-          <span className={label}>Срок</span>
-          <input
-            type="datetime-local"
-            value={draft.due}
-            onChange={(e) => set("due", e.target.value)}
-            className={field}
-          />
-        </label>
 
         <section className="space-y-2">
           <p className={label}>Приоритет</p>
@@ -204,7 +189,7 @@ export default function TaskEditor({
               <button
                 key={p}
                 onClick={() => set("priority", p)}
-                className={`${chip} ${draft.priority === p ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground"}`}
+                className={`${chip} ${draft.priority === p ? PRIORITY_ACTIVE[p] : "border-border bg-background text-muted-foreground"}`}
               >
                 {PRIORITY_LABEL[p]}
               </button>
@@ -252,12 +237,27 @@ export default function TaskEditor({
             {draft.materials.map((m) => (
               <li
                 key={m.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded-xl border border-border bg-background px-4 py-3"
+                className="grid grid-cols-[minmax(0,1fr)_84px_auto_auto] items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5"
               >
                 <span className="truncate text-sm text-foreground">{m.name}</span>
-                <span className="shrink-0 text-sm font-bold text-primary">
-                  {m.qty} {m.unit}
-                </span>
+                <input
+                  value={m.qty ? String(m.qty) : ""}
+                  onChange={(e) =>
+                    set(
+                      "materials",
+                      draft.materials.map((x) =>
+                        x.id === m.id
+                          ? { ...x, qty: Number(e.target.value.replace(",", ".")) || 0 }
+                          : x,
+                      ),
+                    )
+                  }
+                  inputMode="decimal"
+                  placeholder="Кол-во"
+                  aria-label={`Количество: ${m.name}`}
+                  className="min-w-0 rounded-lg border border-input bg-card px-2 py-1.5 text-sm font-bold text-primary outline-none focus:border-primary"
+                />
+                <span className="shrink-0 text-xs text-muted-foreground">{m.unit}</span>
                 <button
                   onClick={() => set("materials", draft.materials.filter((x) => x.id !== m.id))}
                   aria-label="Удалить материал"
@@ -277,7 +277,7 @@ export default function TaskEditor({
               className={`${field} py-2.5`}
             />
             <datalist id="material-suggestions">
-              {MATERIAL_SUGGESTIONS.map((m) => (
+              {allMaterials.map((m) => (
                 <option key={m} value={m} />
               ))}
             </datalist>
@@ -312,7 +312,7 @@ export default function TaskEditor({
         </section>
 
         <section className="space-y-2">
-          <p className={label}>Подзадачи (не влияют на прогресс)</p>
+          <p className={label}>Подзадачи</p>
           <ul className="space-y-2">
             {draft.subtasks.map((s) => (
               <li

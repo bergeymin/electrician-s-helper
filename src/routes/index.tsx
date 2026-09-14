@@ -1,14 +1,12 @@
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Archive, Calendar, Clock, Package, Plus, RotateCcw, Wrench, Zap } from "lucide-react";
+import { Archive, Plus, RotateCcw, Zap } from "lucide-react";
 import TaskEditor from "@/components/TaskEditor";
+import TaskView from "@/components/TaskView";
 import CompleteSheet from "@/components/CompleteSheet";
 import BottomSheet from "@/components/BottomSheet";
 import {
-  PRIORITY_LABEL,
   emptyTask,
-  estimate,
-  fmtDue,
   fmtMinutes,
   qtyProgress,
   uid,
@@ -39,9 +37,20 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { projects, setProjects, tasks, setTasks, customTools, setCustomTools, ready } = useStore();
+  const {
+    projects,
+    setProjects,
+    tasks,
+    setTasks,
+    customTools,
+    setCustomTools,
+    customMaterials,
+    setCustomMaterials,
+    ready,
+  } = useStore();
   const [projectId, setProjectId] = React.useState<string | null>(null);
   const [sectionFilter, setSectionFilter] = React.useState<string>("all");
+  const [viewingId, setViewingId] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<Task | null>(null);
   const [isNew, setIsNew] = React.useState(false);
   const [completing, setCompleting] = React.useState<Task | null>(null);
@@ -55,14 +64,19 @@ function Index() {
 
   const projectTasks = tasks.filter((t) => t.projectId === activeProject?.id);
   const visible = projectTasks.filter(
-    (t) => !t.done && (sectionFilter === "all" || (t.sectionId ?? "none") === sectionFilter),
+    (t) => !t.done && (sectionFilter === "all" || t.sectionId === sectionFilter),
   );
   const archived = projectTasks
     .filter((t) => t.done)
     .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
 
+  const viewing = viewingId ? (tasks.find((t) => t.id === viewingId) ?? null) : null;
+
   const sectionName = (id: string | null) =>
     activeProject?.sections.find((s) => s.id === id)?.name ?? "";
+
+  const updateTask = (task: Task) =>
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
 
   const saveTask = (task: Task) => {
     setTasks((prev) =>
@@ -93,9 +107,6 @@ function Index() {
     setNameInput("");
     setNewSection(false);
   };
-
-  const setQtyDone = (id: string, value: number) =>
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, qtyDone: value } : t)));
 
   return (
     <main className="min-h-screen bg-background pb-28">
@@ -183,7 +194,7 @@ function Index() {
         )}
       </header>
 
-      <section className="space-y-3 px-4 pt-4">
+      <section className="space-y-2.5 px-4 pt-4">
         {ready && visible.length === 0 && (
           <p className="py-16 text-center text-sm text-muted-foreground">
             Задач нет. Нажмите «плюс», чтобы добавить.
@@ -192,86 +203,20 @@ function Index() {
 
         {visible.map((t) => {
           const p = qtyProgress(t);
-          const est = estimate(t.title, t.qtyTarget, tasks);
           return (
-            <article key={t.id} className="rounded-2xl border border-border bg-card p-4">
-              <div
-                onClick={() => {
-                  setIsNew(false);
-                  setEditing(t);
-                }}
-              >
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                  <h2 className="min-w-0 text-base font-bold leading-snug text-foreground">{t.title}</h2>
-                  {t.priority === "high" && (
-                    <span className="shrink-0 rounded-full bg-destructive/20 px-2.5 py-1 text-[11px] font-bold text-destructive">
-                      {PRIORITY_LABEL.high}
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
-                  {t.sectionId && <span className="truncate">{sectionName(t.sectionId)}</span>}
-                  {t.due && (
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5 shrink-0" />
-                      {fmtDue(t.due)}
-                    </span>
-                  )}
-                  {est && (
-                    <span className="inline-flex items-center gap-1 font-semibold text-primary">
-                      <Clock className="h-3.5 w-3.5 shrink-0" />≈ {fmtMinutes(est.minutes)}
-                    </span>
-                  )}
-                  {t.tools.length > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      <Wrench className="h-3.5 w-3.5 shrink-0" />
-                      {t.tools.length}
-                    </span>
-                  )}
-                  {t.materials.length > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      <Package className="h-3.5 w-3.5 shrink-0" />
-                      {t.materials.length}
-                    </span>
-                  )}
-                </div>
+            <button
+              key={t.id}
+              onClick={() => setViewingId(t.id)}
+              className="w-full rounded-2xl border border-border bg-card px-4 py-3.5 text-left"
+            >
+              <h2 className="truncate text-base font-bold text-foreground">{t.title}</h2>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${p}%` }} />
               </div>
-
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
-                  <span>
-                    Прогресс {t.qtyDone} / {t.qtyTarget} {t.qtyUnit}
-                  </span>
-                  <span>{p}%</span>
-                </div>
-                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${p}%` }} />
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={Math.max(1, t.qtyTarget)}
-                  value={Math.min(t.qtyDone, Math.max(1, t.qtyTarget))}
-                  onChange={(e) => setQtyDone(t.id, Number(e.target.value))}
-                  aria-label="Выполненное количество"
-                  className="mt-2 w-full accent-primary"
-                />
-              </div>
-
-              {t.subtasks.length > 0 && (
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  Подзадачи {t.subtasks.filter((s) => s.done).length}/{t.subtasks.length}
-                </p>
-              )}
-
-              <button
-                onClick={() => setCompleting(t)}
-                className="mt-3 w-full rounded-xl border border-primary/50 bg-primary/10 py-2.5 text-xs font-bold text-primary"
-              >
-                Завершить и записать время
-              </button>
-            </article>
+              <p className="mt-1.5 text-[11px] font-semibold text-muted-foreground">
+                {t.qtyDone} / {t.qtyTarget} {t.qtyUnit}
+              </p>
+            </button>
           );
         })}
       </section>
@@ -280,15 +225,31 @@ function Index() {
         onClick={() => {
           if (!activeProject) return;
           setIsNew(true);
-          setEditing(
-            emptyTask(activeProject.id, sectionFilter === "all" ? null : sectionFilter),
-          );
+          setEditing(emptyTask(activeProject.id, sectionFilter === "all" ? null : sectionFilter));
         }}
         aria-label="Новая задача"
         className="fixed bottom-6 right-5 z-30 grid h-14 w-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30"
       >
         <Plus className="h-7 w-7" />
       </button>
+
+      {viewing && !editing && !completing && (
+        <TaskView
+          task={viewing}
+          history={tasks}
+          onChange={updateTask}
+          onEdit={() => {
+            setIsNew(false);
+            setEditing(viewing);
+          }}
+          onDelete={() => {
+            setTasks((prev) => prev.filter((t) => t.id !== viewing.id));
+            setViewingId(null);
+          }}
+          onComplete={() => setCompleting({ ...viewing, qtyDone: viewing.qtyTarget })}
+          onClose={() => setViewingId(null)}
+        />
+      )}
 
       {editing && activeProject && (
         <TaskEditor
@@ -297,7 +258,9 @@ function Index() {
           project={activeProject}
           history={tasks}
           customTools={customTools}
+          customMaterials={customMaterials}
           onAddCustomTool={(name) => setCustomTools((prev) => [...prev, name])}
+          onAddCustomMaterial={(name) => setCustomMaterials((prev) => [...prev, name])}
           onSave={saveTask}
           onDelete={
             isNew
@@ -305,6 +268,7 @@ function Index() {
               : () => {
                   setTasks((prev) => prev.filter((t) => t.id !== editing.id));
                   setEditing(null);
+                  setViewingId(null);
                 }
           }
           onClose={() => setEditing(null)}
@@ -316,8 +280,9 @@ function Index() {
           task={completing}
           history={tasks}
           onComplete={(task) => {
-            setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+            updateTask(task);
             setCompleting(null);
+            setViewingId(null);
           }}
           onClose={() => setCompleting(null)}
         />
