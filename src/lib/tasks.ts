@@ -199,6 +199,7 @@ export const qtyProgress = (t: Task) =>
 const TASKS_KEY = "electrician-tasks-v2";
 const PROJECTS_KEY = "electrician-projects-v2";
 const TOOLS_KEY = "electrician-tools-v1";
+const MATERIALS_KEY = "electrician-materials-v1";
 
 const seedProjectId = uid();
 const seedFloor1 = uid();
@@ -260,12 +261,14 @@ export function useStore() {
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [customTools, setCustomTools] = React.useState<string[]>([]);
+  const [customMaterials, setCustomMaterials] = React.useState<string[]>([]);
   const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
     setProjects(read<Project[]>(PROJECTS_KEY, SEED_PROJECTS));
     setTasks(read<Task[]>(TASKS_KEY, SEED_TASKS));
     setCustomTools(read<string[]>(TOOLS_KEY, []));
+    setCustomMaterials(read<string[]>(MATERIALS_KEY, []));
     setReady(true);
   }, []);
 
@@ -278,6 +281,19 @@ export function useStore() {
   React.useEffect(() => {
     if (ready) localStorage.setItem(TOOLS_KEY, JSON.stringify(customTools));
   }, [customTools, ready]);
+  React.useEffect(() => {
+    if (ready) localStorage.setItem(MATERIALS_KEY, JSON.stringify(customMaterials));
+  }, [customMaterials, ready]);
 
-  return { projects, setProjects, tasks, setTasks, customTools, setCustomTools, ready };
+  return {
+    projects,
+    setProjects,
+    tasks,
+    setTasks,
+    customTools,
+    setCustomTools,
+    customMaterials,
+    setCustomMaterials,
+    ready,
+  };
 }
