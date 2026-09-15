@@ -1,5 +1,4 @@
 import * as React from "react";
-import { CalendarDays } from "lucide-react";
 import { dayOffset, fmtDue, toDateOnly } from "@/lib/tasks";
 
 type Props = { value: string; onChange: (value: string) => void };
@@ -14,15 +13,6 @@ const QUICK: Array<{ label: string; offset: number }> = [
 
 export default function DuePicker({ value, onChange }: Props) {
   const current = toDateOnly(value);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const openCalendar = () => {
-    const el: HTMLInputElement | null = inputRef.current;
-    if (!el) return;
-    const withPicker = el as HTMLInputElement & { showPicker?: () => void };
-    if (typeof withPicker.showPicker === "function") withPicker.showPicker();
-    else el.focus();
-  };
 
   return (
     <div className="space-y-2">
@@ -40,13 +30,6 @@ export default function DuePicker({ value, onChange }: Props) {
             </button>
           );
         })}
-        <button
-          onClick={openCalendar}
-          className={`${chip} inline-flex items-center gap-1.5 border-border bg-background text-primary`}
-        >
-          <CalendarDays className="h-4 w-4" />
-          {current && !QUICK.some((q) => dayOffset(q.offset) === current) ? fmtDue(current) : "Дата"}
-        </button>
         {current && (
           <button
             onClick={() => onChange("")}
@@ -57,12 +40,11 @@ export default function DuePicker({ value, onChange }: Props) {
         )}
       </div>
       <input
-        ref={inputRef}
         type="date"
         value={current}
         onChange={(e) => onChange(e.target.value)}
         aria-label="Дата срока"
-        className="sr-only"
+        className="w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary"
       />
       {current && <p className="text-xs text-muted-foreground">Срок: {fmtDue(current)}</p>}
     </div>
