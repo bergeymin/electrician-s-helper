@@ -12,7 +12,8 @@ export type Task = {
   projectId: string;
   sectionId: string | null;
   title: string;
-  due: string; // datetime-local value
+  due: string; // дата срока, ГГГГ-ММ-ДД
+  doneDate?: string; // дата выполнения, ГГГГ-ММ-ДД
   priority: Priority;
   qtyTarget: number;
   qtyUnit: string;
@@ -85,6 +86,7 @@ export const emptyTask = (projectId: string, sectionId: string | null = null): T
   sectionId,
   title: "",
   due: "",
+  doneDate: "",
   priority: "normal",
   qtyTarget: 1,
   qtyUnit: "шт",

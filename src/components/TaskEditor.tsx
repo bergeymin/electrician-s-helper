@@ -183,6 +183,17 @@ export default function TaskEditor({
         </section>
 
         <section className="space-y-2">
+          <p className={label}>Дата выполнения</p>
+          <input
+            type="date"
+            value={toDateOnly(draft.doneDate ?? "")}
+            onChange={(e) => set("doneDate", e.target.value)}
+            aria-label="Дата выполнения"
+            className={`${field} py-2.5`}
+          />
+        </section>
+
+        <section className="space-y-2">
           <p className={label}>Приоритет</p>
           <div className="flex flex-wrap gap-2">
             {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => (
@@ -239,7 +250,17 @@ export default function TaskEditor({
                 key={m.id}
                 className="grid grid-cols-[minmax(0,1fr)_84px_auto_auto] items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5"
               >
-                <span className="truncate text-sm text-foreground">{m.name}</span>
+                <input
+                  value={m.name}
+                  onChange={(e) =>
+                    set(
+                      "materials",
+                      draft.materials.map((x) => (x.id === m.id ? { ...x, name: e.target.value } : x)),
+                    )
+                  }
+                  aria-label={`Название материала: ${m.name}`}
+                  className="min-w-0 rounded-lg border border-transparent bg-transparent px-1 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:bg-card"
+                />
                 <input
                   value={m.qty ? String(m.qty) : ""}
                   onChange={(e) =>

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Calendar, Check, Clock, MoreVertical, Package, Trash2, Wrench } from "lucide-react";
+import { Calendar, Check, CheckCircle2, Clock, MoreVertical, Package, Trash2, Wrench } from "lucide-react";
 import BottomSheet from "@/components/BottomSheet";
 import {
   PRIORITY_BADGE,
@@ -21,7 +21,7 @@ type Props = {
   onClose: () => void;
 };
 
-const label = "text-xs font-bold uppercase tracking-wider text-muted-foreground";
+const label = "text-[11px] font-bold uppercase tracking-wider text-muted-foreground";
 
 export default function TaskView({
   task,
@@ -72,74 +72,74 @@ export default function TaskView({
         </div>
       }
     >
-      <div className="space-y-5 pt-1 pb-2">
-        <div className="space-y-2">
-          <h3 className="text-lg font-black leading-snug text-foreground">{task.title}</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${PRIORITY_BADGE[task.priority]}`}
-            >
-              {PRIORITY_LABEL[task.priority]}
+      <div className="space-y-3 pb-2">
+        <h3 className="text-base font-black leading-snug text-foreground">{task.title}</h3>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${PRIORITY_BADGE[task.priority]}`}
+          >
+            {PRIORITY_LABEL[task.priority]}
+          </span>
+          {task.due && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+              <Calendar className="h-3 w-3" />
+              {fmtDue(task.due)}
             </span>
-            {task.due && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" />
-                {fmtDue(task.due)}
-              </span>
-            )}
-            {est && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
-                <Clock className="h-3.5 w-3.5" />≈ {fmtMinutes(est.minutes)}
-              </span>
-            )}
-          </div>
+          )}
+          {task.doneDate && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+              <CheckCircle2 className="h-3 w-3" />
+              {fmtDue(task.doneDate)}
+            </span>
+          )}
+          {est && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+              <Clock className="h-3 w-3" />≈ {fmtMinutes(est.minutes)}
+            </span>
+          )}
         </div>
 
-        <section className="space-y-3 rounded-2xl border border-border bg-background p-4">
-          <div className="flex items-center justify-between">
-            <p className={label}>Прогресс</p>
-            <span className="text-sm font-bold text-primary">{percent}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
-          </div>
-          <div className="grid grid-cols-[96px_auto] items-center gap-2">
+        <section className="rounded-xl border border-border bg-background px-3 py-2.5">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <input
-              value={qtyText}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/\D/g, "");
-                setQtyText(raw);
-                setQty(Number(raw) || 0);
-              }}
-              inputMode="numeric"
-              aria-label="Выполненное количество"
-              className="w-full rounded-xl border border-input bg-card px-3 py-2.5 text-center text-base font-bold text-foreground outline-none focus:border-primary"
+              type="range"
+              min={0}
+              max={max}
+              value={clamp(task.qtyDone)}
+              onChange={(e) => setQty(Number(e.target.value))}
+              aria-label="Прогресс"
+              className="w-full accent-primary"
             />
-            <span className="text-sm text-muted-foreground">
-              из {task.qtyTarget} {task.qtyUnit}
-            </span>
+            <div className="flex shrink-0 items-baseline gap-1">
+              <input
+                value={qtyText}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, "");
+                  setQtyText(raw);
+                  setQty(Number(raw) || 0);
+                }}
+                inputMode="numeric"
+                aria-label="Выполненное количество"
+                className="w-12 rounded-lg border border-input bg-card px-1 py-1 text-center text-sm font-bold text-foreground outline-none focus:border-primary"
+              />
+              <span className="text-[11px] font-semibold text-muted-foreground">
+                / {task.qtyTarget} {task.qtyUnit} · {percent}%
+              </span>
+            </div>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={max}
-            value={clamp(task.qtyDone)}
-            onChange={(e) => setQty(Number(e.target.value))}
-            aria-label="Ползунок прогресса"
-            className="w-full accent-primary"
-          />
         </section>
 
         {task.tools.length > 0 && (
-          <section className="space-y-2">
+          <section className="space-y-1.5">
             <p className={`${label} inline-flex items-center gap-1.5`}>
-              <Wrench className="h-3.5 w-3.5" /> Инструмент
+              <Wrench className="h-3 w-3" /> Инструмент
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {task.tools.map((t) => (
                 <span
                   key={t}
-                  className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground"
+                  className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground"
                 >
                   {t}
                 </span>
@@ -149,18 +149,15 @@ export default function TaskView({
         )}
 
         {task.materials.length > 0 && (
-          <section className="space-y-2">
+          <section className="space-y-1.5">
             <p className={`${label} inline-flex items-center gap-1.5`}>
-              <Package className="h-3.5 w-3.5" /> Материалы
+              <Package className="h-3 w-3" /> Материалы
             </p>
-            <ul className="space-y-2">
+            <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background">
               {task.materials.map((m) => (
-                <li
-                  key={m.id}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-background px-4 py-3"
-                >
+                <li key={m.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2">
                   <span className="truncate text-sm text-foreground">{m.name}</span>
-                  <span className="shrink-0 text-sm font-bold text-primary">
+                  <span className="shrink-0 text-xs font-bold text-primary">
                     {m.qty} {m.unit}
                   </span>
                 </li>
@@ -170,15 +167,15 @@ export default function TaskView({
         )}
 
         {task.subtasks.length > 0 && (
-          <section className="space-y-2">
+          <section className="space-y-1.5">
             <p className={label}>
               Чеклист {task.subtasks.filter((s) => s.done).length}/{task.subtasks.length}
             </p>
-            <ul className="space-y-2">
+            <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background">
               {task.subtasks.map((s) => (
                 <li
                   key={s.id}
-                  className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-border bg-background px-4 py-3"
+                  className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 px-3 py-2"
                 >
                   <button
                     onClick={() =>
@@ -190,9 +187,9 @@ export default function TaskView({
                       })
                     }
                     aria-label="Отметить"
-                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${s.done ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
+                    className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${s.done ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}
                   >
-                    {s.done && <Check className="h-4 w-4" />}
+                    {s.done && <Check className="h-3.5 w-3.5" />}
                   </button>
                   <span
                     className={`truncate text-sm ${s.done ? "text-muted-foreground line-through" : "text-foreground"}`}
@@ -205,17 +202,17 @@ export default function TaskView({
           </section>
         )}
 
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 pt-1">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 pt-1">
           <button
             onClick={onDelete}
             aria-label="Удалить задачу"
-            className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-destructive/40 text-destructive"
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-destructive/40 text-destructive"
           >
             <Trash2 className="h-5 w-5" />
           </button>
           <button
             onClick={onComplete}
-            className="h-14 w-full rounded-2xl bg-primary text-base font-black text-primary-foreground shadow-lg shadow-primary/25"
+            className="h-12 w-full rounded-xl bg-primary text-sm font-black text-primary-foreground shadow-lg shadow-primary/25"
           >
             Завершить задачу
           </button>
